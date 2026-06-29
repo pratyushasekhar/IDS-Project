@@ -1,3 +1,4 @@
+
 import socket
 import random
 import time
@@ -13,7 +14,7 @@ def slowloris(ip):
 
         #==Changeable Params==
         numberOfSockets = 200
-        port = 80
+        port = 5000
         timeToSleep = 1
         #=====================
 
@@ -56,3 +57,62 @@ def slowloris(ip):
 
     except ConnectionRefusedError:
         slowloris(ip)
+
+
+
+"""
+from scapy.all import *
+from scapy.layers.inet import *
+import time
+
+request_times = {}
+returnString = ""
+
+TARGET_PORT = 5000
+THRESHOLD = 50
+WINDOW = 3
+
+def detect_slowloris(packet):
+    global request_times
+    global returnString
+
+    if not packet.haslayer(IP) or not packet.haslayer(TCP):
+        return False
+
+    ip = packet[IP]
+    tcp = packet[TCP]
+
+    # only incoming packets to Flask server
+    if tcp.dport != TARGET_PORT:
+        return False
+
+    now = time.time()
+    src = ip.src
+
+    if src not in request_times:
+        request_times[src] = []
+
+    request_times[src].append(now)
+    request_times[src] = [t for t in request_times[src] if now - t <= WINDOW]
+
+    print(f"{src} possible Slowloris packets in last {WINDOW}s: {len(request_times[src])}")
+
+    if len(request_times[src]) > THRESHOLD:
+        returnString = f"Slowloris attack detected from {src}"
+        return True
+
+    return False
+
+def incoming_filter(packet):
+    return packet.haslayer(IP) and packet.haslayer(TCP)
+
+def detectMain(iface, return_dict):
+    print("Detecting Slowloris attack...")
+    sniff(
+        lfilter=incoming_filter,
+        iface=iface,
+        stop_filter=detect_slowloris,
+        store=False
+    )
+    return_dict[0] = returnString
+"""

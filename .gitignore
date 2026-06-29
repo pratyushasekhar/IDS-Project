@@ -3,6 +3,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+__pycache__/
+*.pyc
+*.pyo
+*.swp
+
+venv/
+.env
+
+.vscode/
+.idea/
+
+*.log
+
+.DS_Store
+
 # C extensions
 *.so
 
