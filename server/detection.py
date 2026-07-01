@@ -1,3 +1,4 @@
+from .alerts import add_alert
 from flask import redirect, Blueprint, render_template, request, flash
 import multiprocessing
 import time
@@ -23,6 +24,12 @@ def slowLoris():
         p.start()
         p.join()
 
+        result = str(return_dict.get(0, ""))
+        source_ip = result.split("from")[-1].strip() if "from" in result else request.remote_addr
+
+        if result:
+            add_alert("Slowloris", source_ip, "High")
+        
         flash("SlowLoris Detection has ended")
         flash(str(return_dict[0]))
 
@@ -39,7 +46,7 @@ def httpFlood():
         p = multiprocessing.Process(target=hf.detectMain, args=(iface, return_dict))
         p.start()
         p.join()
-
+        add_alert("HTTP Flood", request.remote_addr, "High")
         flash("HTTP Flood Detection has ended!")
         flash(str(return_dict[0]))
         
@@ -56,7 +63,7 @@ def DHCPStarvation():
         p = multiprocessing.Process(target=ds.detectMain, args=(iface, return_dict))
         p.start()
         p.join()
-
+        add_alert("DHCP Starvation", request.remote_addr, "High")
         flash("DHCP Starvation Detection has ended!")
         flash(str(return_dict[0]))
         
@@ -73,6 +80,10 @@ def portScan():
         p = multiprocessing.Process(target=ps.detectMain, args=(iface, return_dict))
         p.start()
         p.join()
+
+        result = str(return_dict[0])
+        source_ip = result.split("IP:")[-1].strip() if "IP:" in result else request.remote_addr
+        add_alert("Port Scan", source_ip, "High")
 
         flash("port Scan Detection has ended!")
         flash(str(return_dict[0]))

