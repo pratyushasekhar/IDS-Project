@@ -63,7 +63,12 @@ def DHCPStarvation():
         p = multiprocessing.Process(target=ds.detectMain, args=(iface, return_dict))
         p.start()
         p.join()
-        add_alert("DHCP Starvation", request.remote_addr, "High")
+ 
+        result = str(return_dict.get(0, ""))
+        source_ip = result.split("from")[-1].strip() if "from" in result else "DHCP broadcast"
+        if result:
+            add_alert("DHCP Starvation", source_ip, "High")
+      
         flash("DHCP Starvation Detection has ended!")
         flash(str(return_dict[0]))
         

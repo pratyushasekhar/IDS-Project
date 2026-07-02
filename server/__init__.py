@@ -1,9 +1,10 @@
 from flask import Flask, Response
 from os import path
+from flask_cors import CORS
 
 def create_app():
     app = Flask(__name__)
-
+    CORS(app)
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'
 
