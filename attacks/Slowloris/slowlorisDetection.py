@@ -1,17 +1,30 @@
 
-from scapy.all import *
-from scapy.layers.inet import *
+from scapy.all import sniff
+from scapy.layers.inet import IP, TCP
 import time
 
-request_times = {}
+connections = {}
 returnString = ""
 
 TARGET_PORT = 5000
-THRESHOLD = 3
-WINDOW = 3
+MIN_CONNECTIONS = 20
+TIMEOUT = 15
 
-def detect_slowloris(packet):
-    global request_times
+
+def cleanup():
+    now = time.time()
+
+    remove = []
+
+    for key, value in connections.items():
+        if now - value["last_seen"] > TIMEOUT:
+            remove.append(key)
+
+    for key in remove:
+        del connections[key]
+
+
+def detect(packet):
     global returnString
 
     if not packet.haslayer(IP) or not packet.haslayer(TCP):
@@ -23,40 +36,62 @@ def detect_slowloris(packet):
     if tcp.dport != TARGET_PORT:
         return False
 
+    cleanup()
+
+    key = (ip.src, tcp.sport)
+
     now = time.time()
-    src = ip.src
 
-    if src not in request_times:
-        request_times[src] = []
+    if key not in connections:
+        connections[key] = {
+            "start": now,
+            "last_seen": now
+        }
+    else:
+        connections[key]["last_seen"] = now
 
-    request_times[src].append(now)
-    request_times[src] = [t for t in request_times[src] if now - t <= WINDOW]
+    #
+    # Remove connections that close normally
+    #
+    if tcp.flags & 0x01 or tcp.flags & 0x04:
+        if key in connections:
+            del connections[key]
+        return False
 
-    print(f"{src} possible Slowloris packets in last {WINDOW}s: {len(request_times[src])}")
+    active = sum(
+        1
+        for (src, _), info in connections.items()
+        if src == ip.src
+    )
 
-    if len(request_times[src]) > THRESHOLD:
-        returnString = f"Slowloris attack detected from {src}"
+    print(f"{ip.src} active connections: {active}")
+
+    if active >= MIN_CONNECTIONS:
+        returnString = f"Slowloris attack detected from {ip.src}"
         return True
 
     return False
 
+
 def incoming_filter(packet):
     return packet.haslayer(IP) and packet.haslayer(TCP)
 
+
 def detectMain(iface, return_dict):
-    print("Detecting Slowloris attack...")
+
+    print("Detecting Slowloris...")
+
     sniff(
-        lfilter=incoming_filter,
         iface=iface,
-        stop_filter=detect_slowloris,
+        lfilter=incoming_filter,
+        stop_filter=detect,
         store=False
     )
+
     return_dict[0] = returnString
 
 
-
-"""
-from scapy.all import *
+"""rom scapy.all import *
 from scapy.layers.http import HTTPRequest
 from scapy.layers.inet import *
 import time
