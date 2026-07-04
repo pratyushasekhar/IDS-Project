@@ -8,6 +8,89 @@ returnString = ""
 
 TARGET_PORT = 5000
 MIN_CONNECTIONS = 20
+MIN_AGE = 10
+IDLE_TIMEOUT = 30
+
+
+def cleanup():
+    now = time.time()
+    remove = []
+
+    for key, info in connections.items():
+        if now - info["last_seen"] > IDLE_TIMEOUT:
+            remove.append(key)
+
+    for key in remove:
+        del connections[key]
+
+
+def detect(packet):
+    global returnString
+
+    if not packet.haslayer(IP) or not packet.haslayer(TCP):
+        return False
+
+    ip = packet[IP]
+    tcp = packet[TCP]
+
+    if tcp.dport != TARGET_PORT:
+        return False
+
+    now = time.time()
+    key = (ip.src, tcp.sport)
+
+    cleanup()
+
+    if tcp.flags & 0x01 or tcp.flags & 0x04:
+        connections.pop(key, None)
+        return False
+
+    if key not in connections:
+        connections[key] = {"start": now, "last_seen": now}
+    else:
+        connections[key]["last_seen"] = now
+
+    old_connections = [
+        k for k, info in connections.items()
+        if k[0] == ip.src and now - info["start"] >= MIN_AGE
+    ]
+
+    print(f"{ip.src} long-lived connections: {len(old_connections)}", flush=True)
+
+    if len(old_connections) >= MIN_CONNECTIONS:
+        returnString = f"Slowloris attack detected from {ip.src}"
+        return True
+
+    return False
+
+
+def incoming_filter(packet):
+    return packet.haslayer(IP) and packet.haslayer(TCP)
+
+
+def detectMain(iface, return_dict):
+    print("Detecting Slowloris...", flush=True)
+
+    sniff(
+        iface=iface,
+        lfilter=incoming_filter,
+        stop_filter=detect,
+        store=False
+    )
+
+    return_dict[0] = returnString
+
+
+"""
+from scapy.all import sniff
+from scapy.layers.inet import IP, TCP
+import time
+
+connections = {}
+returnString = ""
+
+TARGET_PORT = 5000
+MIN_CONNECTIONS = 20
 TIMEOUT = 15
 
 
@@ -91,7 +174,7 @@ def detectMain(iface, return_dict):
     return_dict[0] = returnString
 
 
-"""rom scapy.all import *
+rom scapy.all import *
 from scapy.layers.http import HTTPRequest
 from scapy.layers.inet import *
 import time
